@@ -1216,6 +1216,7 @@ pub(crate) trait PipelineConsumer {
                 Ok(res) => return Some(res),
                 Err(b) => b,
             };
+            eprintln!("DEBUG pull() loop: backoff={:?}", backoff);
             // In case of writing many small messages, `recv_async()` will most likely return immediately.
             // While trying to pull from the queue, the stage_in `lock()` will most likely taken, leading to
             // a spinning behaviour while attempting to take the lock. Yield the current task to avoid
@@ -1231,8 +1232,12 @@ pub(crate) trait PipelineConsumer {
                     )
                     .await
                 }
-                None => Ok(self.n_out_r().wait_async().await),
+                None => {
+                    eprintln!("DEBUG pull() about to wait_async() UNBOUNDED");
+                    Ok(self.n_out_r().wait_async().await)
+                }
             };
+            eprintln!("DEBUG pull() backoff_wait result: ok={} err={}", backoff_wait.is_ok(), backoff_wait.is_err());
             match backoff_wait {
                 Ok(Ok(())) => {
                     // We have received a notification from the channel that some bytes are available, retry to pull.
