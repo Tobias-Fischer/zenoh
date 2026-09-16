@@ -132,11 +132,8 @@ impl StageInOut {
     #[inline]
     fn notify(&self, bytes: BatchSize) {
         self.atomic_backoff.bytes.store(bytes, Ordering::Relaxed);
-        let active = self.atomic_backoff.active.load(Ordering::Relaxed);
-        eprintln!("DEBUG StageInOut::notify bytes={bytes} active={active}");
-        if !active {
-            let r = self.n_out_w.notify();
-            eprintln!("DEBUG StageInOut::notify called n_out_w.notify() ok={}", r.is_ok());
+        if !self.atomic_backoff.active.load(Ordering::Relaxed) {
+            let _ = self.n_out_w.notify();
         }
     }
 
@@ -144,8 +141,7 @@ impl StageInOut {
     fn move_batch(&mut self, batch: BoxedWBatch) {
         let _ = self.s_out_w.push(batch);
         self.atomic_backoff.bytes.store(0, Ordering::Relaxed);
-        let r = self.n_out_w.notify();
-        eprintln!("DEBUG StageInOut::move_batch called n_out_w.notify() ok={}", r.is_ok());
+        let _ = self.n_out_w.notify();
     }
 }
 
@@ -321,7 +317,6 @@ impl StageIn {
         priority: Priority,
         deadline: &mut Deadline,
     ) -> Result<bool, TransportClosed> {
-        eprintln!("DEBUG push_network_message ENTRY batching={}", self.batching);
         // Lock the current serialization batch.
         let mut c_guard = zlock!(self.mutex.current);
         c_guard.notify_pending();
