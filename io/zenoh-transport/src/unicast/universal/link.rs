@@ -323,16 +323,21 @@ async fn write_loop(
     cancellation_token: CancellationToken,
     #[cfg(feature = "stats")] stats: zenoh_stats::LinkStats,
 ) -> ZResult<()> {
+    eprintln!("DEBUG write_loop STARTED");
     let task = async {
         loop {
+            eprintln!("DEBUG write_loop iteration, about to select");
             tokio::select! {
                 pull = pipeline.pull() => {
+                    eprintln!("DEBUG pipeline.pull() returned: {}", pull.is_some());
                     let Some((mut batch, priority)) = pull else {
                         // The queue has been disabled: break the tx loop, drain the queue, and exit
                         break
                     };
                     debug_assert!(write_priority.is_none() || write_priority == Some(priority));
+                    eprintln!("DEBUG about to send_batch");
                     link.send_batch(&mut batch, write_priority).await?;
+                    eprintln!("DEBUG send_batch done");
                     // inform the latest message tracker that a message has been sent
                     keep_alive_tracker.reset();
 
